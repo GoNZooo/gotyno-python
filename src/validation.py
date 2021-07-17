@@ -1,4 +1,4 @@
-from typing import Any, Callable, Dict, List, Union, TypeVar, Generic
+from typing import Any, Callable, Dict, List, Tuple, Union, TypeVar, Generic
 from dataclasses import dataclass
 from json import loads
 
@@ -29,6 +29,7 @@ class Invalid:
 ValidationResult = Union[Valid[T], Invalid]
 Validator = Callable[[Unknown], ValidationResult[T]]
 InterfaceSpecification = StringMap[Validator[T]]
+TaggedValidators = Dict[str, Validator[T]]
 
 
 def validate_from_string(value: Union[str, bytes], validator: Validator[T]) -> ValidationResult[T]:
@@ -45,7 +46,7 @@ def validate_from_string(value: Union[str, bytes], validator: Validator[T]) -> V
         return Invalid('Invalid JSON')
 
     validation_result = validator(value)
-    if (isinstance(validation_result, Invalid)):
+    if isinstance(validation_result, Invalid):
         return validation_result
 
     return Valid(validation_result.value)
@@ -55,9 +56,9 @@ def validate_string(value: Unknown) -> ValidationResult[str]:
     """
     Validates a value as a `str`.
     """
-    if (isinstance(value, str)):
+    if isinstance(value, str):
         return Valid(value)
-    elif (isinstance(value, bytes)):
+    elif isinstance(value, bytes):
         # decode a utf8 bytestring safely
         try:
             value = value.decode('utf-8')
@@ -73,7 +74,7 @@ def validate_integer(value: Unknown) -> ValidationResult[int]:
     """
     Validates a value as an integer.
     """
-    if (isinstance(value, int)):
+    if isinstance(value, int):
         return Valid(value)
 
     return Invalid(f'Value is not integer {value} ({type(value)})')
@@ -83,37 +84,40 @@ def validate_float(value: Unknown) -> ValidationResult[float]:
     """
     Validates a value as a float.
     """
-    if (isinstance(value, float)):
+    if isinstance(value, float):
         return Valid(value)
 
     return Invalid(f'Value is not float {value} ({type(value)})')
 
 
-def validate_dict(value: Unknown, validate_t: Validator[T], validate_u: Validator[U]) -> ValidationResult[Dict[T, U]]:
+def validate_dict(value: Unknown,
+                  validate_t: Validator[T],
+                  validate_u: Validator[U]
+                  ) -> ValidationResult[Dict[T, U]]:
     """
     Validates a value as a dict with type `T` for keys and `U` for values.
     """
-    if (isinstance(value, dict)):
-        errors = dict()
-        new_value = dict()
-        for key, value in value.items():
-            key_validation_result = validate_t(key)
-            if (isinstance(key_validation_result, Invalid)):
-                errors[key] = key_validation_result
+    if not isinstance(value, dict):
+        return Invalid(f'Expected dict, got: {value} ({type(value)})')
+
+    errors = dict()
+    new_value = dict()
+    for key, value in value.items():
+        key_validation_result = validate_t(key)
+        if isinstance(key_validation_result, Invalid):
+            errors[key] = key_validation_result
+        else:
+            value_validation_result = validate_u(value)
+            if isinstance(value_validation_result, Invalid):
+                errors[key] = value_validation_result
             else:
-                value_validation_result = validate_u(value)
-                if (isinstance(value_validation_result, Invalid)):
-                    errors[key] = value_validation_result
-                else:
-                    new_value[key_validation_result.value] = value_validation_result.value
+                new_value[key_validation_result.value] = value_validation_result.value
 
-        # if the error dict has values, return invalid
-        if (len(errors) > 0):
-            return Invalid(errors)
+    # if the error dict has values, return them as part of an invalid result
+    if len(errors) > 0:
+        return Invalid(errors)
 
-        return Valid(new_value)
-    else:
-        return Invalid(f'Value is not dict: {value} ({type(value)})')
+    return Valid(new_value)
 
 
 def validate_string_map(value: Unknown, validator: Validator[T]) -> ValidationResult[StringMap[T]]:
@@ -127,29 +131,31 @@ def validate_one_of_literals(value: Unknown, literals: List[T]) -> ValidationRes
     """
     Validates a value as one of the given literals.
     """
-    if (value in literals):
-        return Valid(value)
-
+    # Loop through the literals. If the value is equal to one of them, return it as a valid result,
+    # otherwise return an invalid result.
+    for literal in literals:
+        if value == literal:
+            return Valid(value)
     return Invalid(f'Expected one of {literals}, got: {value} ({type(value)})')
 
 
 def validate_one_of(value: Unknown, validators: List[Validator[T]]) -> ValidationResult[T]:
     """
-    Validates a value as one of the given validators.
+    Validates a value as matching one of the given validators.
     """
     for validator in validators:
         validation_result = validator(value)
-        if (isinstance(validation_result, Valid)):
+        if isinstance(validation_result, Valid):
             return validation_result
 
-    validator_names = [f'{v.__name__}' for v in validators]
+    validator_names = [v.__name__ for v in validators]
 
     return Invalid(f'Expected to match one of {validator_names}, got: {value} ({type(value)})')
 
 
 def validate_unknown(value: Unknown) -> ValidationResult[Unknown]:
     """
-    Validates a value as unknown.
+    Validates a value as unknown. This is always a valid result.
     """
     return Valid(value)
 
@@ -159,7 +165,7 @@ def validate_interface(value: Unknown, interface: InterfaceSpecification) -> Val
     Validates a value as matching a given interface specification.
     """
     value_as_string_map = validate_string_map(value, validate_unknown)
-    if (isinstance(value_as_string_map, Invalid)):
+    if isinstance(value_as_string_map, Invalid):
         return value_as_string_map
 
     value_as_string_map = value_as_string_map.value
@@ -167,19 +173,59 @@ def validate_interface(value: Unknown, interface: InterfaceSpecification) -> Val
     new_value = dict()
     # iterate through the interface, validating each key exists and the value matches the validator
     for key, validator in interface.items():
-        if (key not in value_as_string_map):
+        if key not in value_as_string_map:
             errors[key] = f'Missing key: {key}'
         else:
             validation_result = validator(value_as_string_map[key])
-            if (isinstance(validation_result, Invalid)):
+            if isinstance(validation_result, Invalid):
                 errors[key] = validation_result
             else:
                 new_value[key] = validation_result.value
 
-    if (len(errors) > 0):
+    if len(errors) > 0:
         return Invalid(errors)
 
     return Valid(new_value)
+
+
+def validate_with_type_tags(value: Unknown,
+                            tag_field: str,
+                            tagged_validators: TaggedValidators[T],
+                            is_embedded=False
+                            ) -> ValidationResult[T]:
+    """
+    Validates that a value has a tag field matching one of several tagged validators. If the tag
+    field matches, the corresponding validator is also run either on the value itself or a 'data'
+    field inside of it.
+    """
+    # Make sure that we have a `StringMap`
+    as_string_map = validate_string_map(value, validate_unknown)
+    if not isinstance(as_string_map, Valid):
+        return as_string_map
+    string_map = as_string_map.value
+
+    # Make sure that the tag field exists
+    if tag_field not in string_map:
+        return Invalid(f'Missing tag field: {tag_field}')
+    tag = string_map[tag_field]
+    # If the tag doesn't match any of our tagged validators, we have an error
+    if tag not in tagged_validators:
+        valid_type_tags = [tag for tag in tagged_validators.keys()]
+
+        return Invalid(f'Invalid tag: {tag}, expecting one of {valid_type_tags}')
+
+    # Since our tag exists and matches one of our tagged validators, we can run the validator
+    # on the value itself or on the data field inside of it
+    validator = tagged_validators[tag]
+    if not is_embedded:
+        # If the data field doesn't exist, we have an invalid structure
+        if 'data' not in string_map:
+            return Invalid(f'Missing data field for non-embedded structure')
+
+        return validator(string_map['data'])
+
+    # Otherwise, we can run the validator on the entire string map
+    return validator(string_map)
 
 
 if __name__ == '__main__':
