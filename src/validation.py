@@ -106,11 +106,11 @@ def validate_dict(value: Unknown,
     for key, value in value.items():
         key_validation_result = validate_t(key)
         if isinstance(key_validation_result, Invalid):
-            errors[key] = key_validation_result
+            errors[key] = key_validation_result.reason
         else:
             value_validation_result = validate_u(value)
             if isinstance(value_validation_result, Invalid):
-                errors[key] = value_validation_result
+                errors[key] = value_validation_result.reason
             else:
                 new_value[key_validation_result.value] = value_validation_result.value
 

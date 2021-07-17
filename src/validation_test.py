@@ -1,6 +1,6 @@
 import unittest
 
-from validation import validate_float, validate_int, validate_string, Valid, Invalid
+from validation import validate_dict, validate_float, validate_int, validate_string, Valid, Invalid, validate_string_map
 
 
 class TestValidator(unittest.TestCase):
@@ -45,3 +45,24 @@ class TestValidator(unittest.TestCase):
             'Value is not float: {} (<class \'dict\'>)'))
         self.assertEqual(validate_float('1.0'), Invalid(
             'Value is not float: 1.0 (<class \'str\'>)'))
+
+    def test_validate_dict_with_valid_values(self):
+        self.assertEqual(validate_dict(
+            {'a': 1}, validate_t=validate_string, validate_u=validate_int), Valid({'a': 1}))
+        self.assertEqual(validate_dict(
+            {42: 1}, validate_t=validate_int, validate_u=validate_int), Valid({42: 1}))
+
+    def test_validate_dict_with_invalid_values(self):
+        self.assertEqual(validate_dict(
+            1, validate_t=validate_string, validate_u=validate_string), Invalid(
+            'Expected dict, got: 1 (<class \'int\'>)'))
+        self.assertEqual(validate_dict(
+            True, validate_t=validate_string, validate_u=validate_string), Invalid(
+            'Expected dict, got: True (<class \'bool\'>)'))
+        self.assertEqual(validate_dict(
+            {'a': 1}, validate_t=validate_string, validate_u=validate_string), Invalid(
+            {'a': 'Value is not string: 1 (<class \'int\'>)'}))
+
+    def test_validate_string_map_with_valid_values(self):
+        self.assertEqual(validate_string_map(
+            {'a': 42}, validate_int), Valid({'a': 42}))
