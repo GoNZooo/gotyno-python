@@ -1,8 +1,9 @@
 from dataclasses import dataclass
-from typing import Union
+from typing import Literal, Union
 import unittest
-
-from validation import Unknown, ValidationResult, validate_dict, validate_float, validate_from_string, validate_int, validate_interface, validate_literal, validate_string, Valid, Invalid, validate_string_map
+from validation import (Unknown, ValidationResult, validate_dict, validate_float,
+                        validate_from_string, validate_int, validate_interface, validate_literal,
+                        validate_string, Valid, Invalid, validate_string_map)
 import json
 
 
@@ -10,6 +11,7 @@ import json
 class SomeType:
     some_field: str
     some_other_field: int
+    type: Literal["SomeType"] = 'SomeType'
 
     @staticmethod
     def validate(value: Unknown) -> ValidationResult['SomeType']:
@@ -25,10 +27,6 @@ class SomeType:
         if isinstance(result, Invalid):
             return result
 
-        # Remove the type tag from the result so we can create the instance of the type
-        del result.value['type']
-
-        # Create a new SomeType from the items in the result
         return Valid(SomeType(**result.value))
 
     @staticmethod
