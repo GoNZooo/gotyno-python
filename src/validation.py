@@ -1,6 +1,7 @@
 from typing import Any, Callable, Dict, List, Tuple, Union, TypeVar, Generic
 from dataclasses import dataclass
 from json import loads
+import unittest
 
 
 T = TypeVar('T')
@@ -67,17 +68,17 @@ def validate_string(value: Unknown) -> ValidationResult[str]:
         except UnicodeDecodeError:
             return Invalid('Bytes invalid as utf-8 string')
 
-    return Invalid(f'Value is not string {value} ({type(value)})')
+    return Invalid(f'Value is not string: {value} ({type(value)})')
 
 
 def validate_int(value: Unknown) -> ValidationResult[int]:
     """
-    Validates a value as an integer.
+    Validates a value as an integer. Note that boolean values are not counted as valid integers.
     """
-    if isinstance(value, int):
+    if isinstance(value, int) and not isinstance(value, bool):
         return Valid(value)
 
-    return Invalid(f'Value is not integer {value} ({type(value)})')
+    return Invalid(f'Value is not int: {value} ({type(value)})')
 
 
 def validate_float(value: Unknown) -> ValidationResult[float]:
@@ -87,7 +88,7 @@ def validate_float(value: Unknown) -> ValidationResult[float]:
     if isinstance(value, float):
         return Valid(value)
 
-    return Invalid(f'Value is not float {value} ({type(value)})')
+    return Invalid(f'Value is not float: {value} ({type(value)})')
 
 
 def validate_dict(value: Unknown,
@@ -294,3 +295,5 @@ if __name__ == '__main__':
         {'SomeType': validate_SomeType},
         is_embedded=False
     ))
+
+    print(validate_int(True))
