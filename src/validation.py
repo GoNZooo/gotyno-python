@@ -70,7 +70,7 @@ def validate_string(value: Unknown) -> ValidationResult[str]:
     return Invalid(f'Value is not string {value} ({type(value)})')
 
 
-def validate_integer(value: Unknown) -> ValidationResult[int]:
+def validate_int(value: Unknown) -> ValidationResult[int]:
     """
     Validates a value as an integer.
     """
@@ -228,6 +228,22 @@ def validate_with_type_tags(value: Unknown,
     return validator(string_map)
 
 
+@dataclass(frozen=True)
+class SomeType:
+    some_field: str
+    some_other_field: int
+
+
+def validate_SomeType(value: Unknown) -> ValidationResult[SomeType]:
+    """
+    Validates a value as being of type `SomeType`
+    """
+    return validate_interface(value,
+                              {'some_field': validate_string,
+                                  'some_other_field': validate_int}
+                              )
+
+
 if __name__ == '__main__':
     print(validate_string(b'{"a": "b"}'))
     print(validate_string('{"a": "b"}'))
@@ -237,11 +253,44 @@ if __name__ == '__main__':
     print(validate_string_map({"a": "b"}, validate_string))
     print(validate_string_map({1: "b"}, validate_string))
     print(validate_string_map({"a": 1}, validate_string))
-    print(validate_dict({1: "b"}, validate_integer, validate_string))
-    print(validate_dict({"a": 1}, validate_string, validate_integer))
+    print(validate_dict({1: "b"}, validate_int, validate_string))
+    print(validate_dict({"a": 1}, validate_string, validate_int))
     print(validate_one_of_literals(1, [1, 2, 3]))
     print(validate_one_of_literals(1, ["one", "two", "three"]))
     print(validate_one_of(1, [validate_string]))
     res = validate_one_of(
-        1, [validate_string, validate_float, validate_integer])
+        1, [validate_string, validate_float, validate_int])
     print(res)
+    print(validate_interface(1, {'a': validate_string}))
+    print(validate_interface({'a': 'hullaballoo'}, {'a': validate_string}))
+    print(validate_interface({'a': 'hullaballoo'}, {
+          'ab': validate_string, 'bb': validate_string}))
+
+    print(validate_with_type_tags(
+        {'type': 'SomeType', 'some_field': 'hullaballoo', 'some_other_field': 1},
+        'type',
+        {'SomeType': validate_SomeType},
+        is_embedded=True
+    ))
+
+    print(validate_with_type_tags(
+        {'type': 'SomeTyp', 'some_field': 'hullaballoo', 'some_other_field': 1},
+        'type',
+        {'SomeType': validate_SomeType},
+        is_embedded=True
+    ))
+
+    print(validate_with_type_tags(
+        {'type': 'SomeType', 'some_field': 'hullaballoo'},
+        'type',
+        {'SomeType': validate_SomeType},
+        is_embedded=True
+    ))
+
+    print(validate_with_type_tags(
+        {'type': 'SomeType', 'data': {
+            'some_field': 'hullaballoo', 'some_other_field': 1}},
+        'type',
+        {'SomeType': validate_SomeType},
+        is_embedded=False
+    ))
