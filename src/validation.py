@@ -90,6 +90,18 @@ def validate_float(value: Unknown) -> ValidationResult[float]:
     return Invalid(f'Value is not float: {value} ({type(value)})')
 
 
+def validate_literal(literal: T) -> Validator[T]:
+    """
+    Takes a literal value and creates a validator for it.
+    """
+    def validator(value: Unknown) -> Validator[T]:
+        if value == literal:
+            return Valid(literal)
+        return Invalid(f'Value is not {literal}: {value} ({type(value)})')
+
+    return validator
+
+
 def validate_dict(value: Unknown,
                   validate_t: Validator[T],
                   validate_u: Validator[U]
