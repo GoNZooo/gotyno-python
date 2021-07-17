@@ -277,29 +277,3 @@ def validate_with_type_tags(value: Unknown,
 
     # Otherwise, we can run the validator on the entire string map
     return validator(string_map)
-
-
-if __name__ == '__main__':
-    print(validate_string(b'{"a": "b"}'))
-    print(validate_string('{"a": "b"}'))
-    print(validate_string('{"a": "b"}'.encode('utf-8')))
-    print(validate_string(b'{"a": "b"}'.decode('utf-8')))
-    print(validate_string(5))
-    print(validate_string_map({"a": "b"}, validate_string))
-    print(validate_string_map({1: "b"}, validate_string))
-    print(validate_string_map({"a": 1}, validate_string))
-    print(validate_dict({1: "b"}, validate_int, validate_string))
-    print(validate_dict({"a": 1}, validate_string, validate_int))
-    print(validate_dict({"a": 1}, validate_string, validate_string))
-    print(validate_one_of_literals(1, [1, 2, 3]))
-    print(validate_one_of_literals(1, ["one", "two", "three"]))
-    print(validate_one_of(1, [validate_string]))
-    res = validate_one_of(
-        1, [validate_string, validate_float, validate_int])
-    print(res)
-    print(validate_interface(1, {'a': validate_string}))
-    print(validate_interface({'a': 'hullaballoo'}, {'a': validate_string}))
-    print(validate_interface({'a': 'hullaballoo'}, {
-          'ab': validate_string, 'bb': validate_string}))
-
-    print(validate_int(True))
