@@ -1,6 +1,44 @@
+from dataclasses import dataclass
+from typing import Union
 import unittest
 
-from validation import validate_dict, validate_float, validate_int, validate_string, Valid, Invalid, validate_string_map
+from validation import Unknown, ValidationResult, validate_dict, validate_float, validate_from_string, validate_int, validate_interface, validate_string, Valid, Invalid, validate_string_map
+import json
+
+
+@dataclass(frozen=True)
+class SomeType:
+    some_field: str
+    some_other_field: int
+
+    @staticmethod
+    def validate(value: Unknown) -> ValidationResult['SomeType']:
+        """
+        Validates a value as being of type `SomeType`
+        """
+        result = validate_interface(value,
+                                    {'some_field': validate_string,
+                                     'some_other_field': validate_int}
+                                    )
+
+        if isinstance(result, Invalid):
+            return result
+
+        # Create a new SomeType from the items in the result
+        return Valid(SomeType(**result.value))
+
+    @staticmethod
+    def decode(string: Union[str, bytes]) -> ValidationResult['SomeType']:
+        """
+        Decodes a string into a SomeType
+        """
+        return validate_from_string(string, SomeType.validate)
+
+    def encode(self) -> str:
+        """
+        Encodes this SomeType into a string
+        """
+        return json.dumps(self.__dict__)
 
 
 class TestValidator(unittest.TestCase):
@@ -66,3 +104,12 @@ class TestValidator(unittest.TestCase):
     def test_validate_string_map_with_valid_values(self):
         self.assertEqual(validate_string_map(
             {'a': 42}, validate_int), Valid({'a': 42}))
+
+    def test_example_class_functionality(self):
+        self.assertEqual(SomeType.validate({'some_field': '1', 'some_other_field': 1}),
+                         Valid(SomeType(some_field='1', some_other_field=1)))
+
+        self.assertEqual(SomeType(some_field='hello', some_other_field=1).encode(),
+                         '{"some_field": "hello", "some_other_field": 1}')
+        self.assertEqual(SomeType.decode(SomeType('hello', 1).encode()),
+                         Valid(SomeType(some_field='hello', some_other_field=1)))
