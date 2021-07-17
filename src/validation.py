@@ -1,7 +1,6 @@
-from typing import Any, Callable, Dict, List, Tuple, Union, TypeVar, Generic
+from typing import Callable, Dict, List, Union, TypeVar, Generic
 from dataclasses import dataclass
 from json import loads
-import unittest
 
 
 T = TypeVar('T')
@@ -126,6 +125,45 @@ def validate_string_map(value: Unknown, validator: Validator[T]) -> ValidationRe
     Validates a value as a string map with value types `T`.
     """
     return validate_dict(value, validate_string, validator)
+
+
+def validate_dict_of(validate_t: Validator[T],
+                     validate_u: Validator[U]
+                     ) -> Validator[Dict[T, U]]:
+    """
+    Takes a key validator and a value validator and creates a validator for a dict using them.
+    """
+    def validator(value: Unknown) -> Validator[Dict[T, U]]:
+        if not isinstance(value, dict):
+            return Invalid('Expected dict')
+        new_value = dict()
+        errors = dict()
+        for key, value_u in value.items():
+            key_validation_result = validate_t(key)
+            value_validation_result = validate_u(value_u)
+            if isinstance(key_validation_result, Invalid):
+                errors[key] = key_validation_result.reason
+                continue
+
+            if isinstance(value_validation_result, Invalid):
+                errors[key] = value_validation_result.reason
+                continue
+
+            new_value[key_validation_result.value] = value_validation_result.value
+
+        if len(errors) > 0:
+            return Invalid(errors)
+
+        return Valid(new_value)
+
+    return validator
+
+
+def validate_string_map_of(validate_t: Validator[T]) -> Validator[StringMap[T]]:
+    """
+    Takes a value validator for `T` and creates a validator for a `StringMap[T]`.
+    """
+    return validate_dict_of(validate_string, validate_t)
 
 
 def validate_one_of_literals(value: Unknown, literals: List[T]) -> ValidationResult[T]:
@@ -256,6 +294,7 @@ if __name__ == '__main__':
     print(validate_string_map({"a": 1}, validate_string))
     print(validate_dict({1: "b"}, validate_int, validate_string))
     print(validate_dict({"a": 1}, validate_string, validate_int))
+    print(validate_dict({"a": 1}, validate_string, validate_string))
     print(validate_one_of_literals(1, [1, 2, 3]))
     print(validate_one_of_literals(1, ["one", "two", "three"]))
     print(validate_one_of(1, [validate_string]))
