@@ -251,6 +251,31 @@ def validate_interface(value: Unknown, interface: InterfaceSpecification) -> Val
     return Valid(new_value)
 
 
+def validate_with_type_tag(value: Unknown,
+                           tag_field: str,
+                           type_tag: str,
+                           interface: InterfaceSpecification,
+                           constructor: Callable[[Dict[str, Unknown]], T]
+                           ) -> ValidationResult[T]:
+    """
+    Validates a value as matching a given interface specification and having a type tag. The type
+    tag is removed from the result after validation.
+    """
+    # Add the tag field to the interface specification.
+    interface_with_type_tag = {**interface,
+                               tag_field: validate_literal(type_tag)}
+    result = validate_interface(value, interface_with_type_tag)
+    if isinstance(result, Invalid):
+        return result
+
+    # Remove the type tag from the result and return the value after applying the constructor to
+    # the result.
+    result_without_type_tag = {k: v for k,
+                               v in result.value.items() if k != tag_field}
+
+    return Valid(constructor(**result_without_type_tag))
+
+
 def validate_with_type_tags(value: Unknown,
                             tag_field: str,
                             tagged_validators: TaggedValidators[T],
@@ -278,14 +303,6 @@ def validate_with_type_tags(value: Unknown,
         return Invalid(f'Invalid tag: {tag}, expecting one of {valid_type_tags}')
 
     # Since our tag exists and matches one of our tagged validators, we can run the validator
-    # on the value itself or on the data field inside of it
     validator = tagged_validators[tag]
-    if not is_embedded:
-        # If the data field doesn't exist, we have an invalid structure
-        if 'data' not in string_map:
-            return Invalid(f'Missing data field for non-embedded structure')
 
-        return validator(string_map['data'])
-
-    # Otherwise, we can run the validator on the entire string map
     return validator(string_map)
