@@ -5,6 +5,8 @@ from validation import (Unknown, ValidationResult, Validator, validate_dict, val
                         validate_from_string, validate_int, validate_interface, validate_literal, validate_optional,
                         validate_string, Valid, Invalid, validate_string_map)
 import json
+import validation as v
+import typing
 
 T = TypeVar('T')
 
@@ -63,6 +65,46 @@ class Holder(Generic[T]):
 
     def encode(self) -> str:
         return json.dumps(self.__dict__)
+
+
+class Event:
+    @staticmethod
+    def validate(value: v.Unknown) -> v.ValidationResult['Event']:
+        return v.validate_with_type_tags(value, 'type', {'Notification': Notification.validate, 'Launch': Launch.validate})
+
+    @staticmethod
+    def decode(string: typing.Union[str, bytes]) -> v.ValidationResult['Event']:
+        return v.validate_from_string(string, Event.validate)
+
+
+@dataclass(frozen=True)
+class Notification(Event):
+    data: str
+
+    @staticmethod
+    def validate(value: v.Unknown) -> v.ValidationResult['Notification']:
+        return v.validate_with_type_tag(value, 'type', 'Notification', {'data': v.validate_string}, Notification)
+
+    @staticmethod
+    def decode(string: typing.Union[str, bytes]) -> v.ValidationResult['Notification']:
+        return v.validate_from_string(string, Notification.validate)
+
+    def encode(self) -> str:
+        return json.dumps({**self.__dict__, 'type': 'Notification'})
+
+
+@dataclass(frozen=True)
+class Launch(Event):
+    @staticmethod
+    def validate(value: v.Unknown) -> v.ValidationResult['Launch']:
+        return v.validate_with_type_tag(value, 'type', 'Launch', {}, Launch)
+
+    @staticmethod
+    def decode(string: typing.Union[str, bytes]) -> v.ValidationResult['Launch']:
+        return v.validate_from_string(string, Launch.validate)
+
+    def encode(self) -> str:
+        return json.dumps({**self.__dict__, 'type': 'Launch'})
 
 
 class TestValidator(unittest.TestCase):
@@ -157,3 +199,31 @@ class TestValidator(unittest.TestCase):
                          '{"some_field": "1", "some_other_field": 1, "maybe_some_field": "hello", "type": "SomeType"}')
         self.assertEqual(SomeType.decode(valid_constructed_with_optional_value.encode()),
                          Valid(SomeType(some_field='1', some_other_field=1, maybe_some_field="hello")))
+
+    def test_creating_event_works(self):
+        notification_event = Notification(data='Hello!')
+        launch_event = Launch()
+
+        notification_encoded = notification_event.encode()
+        self.assertEqual(notification_encoded,
+                         '{"data": "Hello!", "type": "Notification"}')
+
+        launch_encoded = launch_event.encode()
+        self.assertEqual(launch_encoded, '{"type": "Launch"}')
+
+        notification_decoded = Notification.decode(notification_encoded)
+        self.assertIsInstance(notification_decoded, v.Valid)
+        self.assertEqual(notification_decoded.value, notification_event)
+
+        launch_decoded = Launch.decode(launch_encoded)
+        self.assertIsInstance(launch_decoded, v.Valid)
+        self.assertEqual(launch_decoded.value, launch_event)
+
+        notification_decoded_as_event = Event.decode(notification_encoded)
+        self.assertIsInstance(notification_decoded_as_event, v.Valid)
+        self.assertEqual(notification_decoded_as_event.value,
+                         notification_event)
+
+        launch_decoded_as_event = Event.decode(launch_encoded)
+        self.assertIsInstance(launch_decoded_as_event, v.Valid)
+        self.assertEqual(launch_decoded_as_event.value, launch_event)
