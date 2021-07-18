@@ -1,4 +1,4 @@
-from typing import Callable, Dict, List, Union, TypeVar, Generic
+from typing import Callable, Dict, List, Optional, Union, TypeVar, Generic
 from dataclasses import dataclass
 import json
 
@@ -100,6 +100,18 @@ def validate_literal(literal: T) -> Validator[T]:
         return Invalid(f'Value is not {literal}: {value} ({type(value)})')
 
     return validator
+
+
+def validate_optional(validator: Validator[T]) -> Validator[Optional[T]]:
+    """
+    Takes a validator and creates a validator that will return `None` if the value is `None`.
+    """
+    def validate_OptionalT(value: Optional[T]) -> Validator[Optional[T]]:
+        if value is None:
+            return Valid(None)
+        return validator(value)
+
+    return validate_OptionalT
 
 
 def validate_dict(value: Unknown,
@@ -225,7 +237,7 @@ def validate_interface(value: Unknown, interface: InterfaceSpecification) -> Val
     # iterate through the interface, validating each key exists and the value matches the validator
     for key, validator in interface.items():
         if key not in value_as_string_map:
-            errors[key] = f'Missing key: {key}'
+            new_value[key] = None
         else:
             validation_result = validator(value_as_string_map[key])
             if isinstance(validation_result, Invalid):

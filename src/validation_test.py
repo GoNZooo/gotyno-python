@@ -1,17 +1,20 @@
 from dataclasses import dataclass
-from typing import Literal, Union
+from typing import Generic, Literal, Optional, TypeVar, Union
 import unittest
-from validation import (Unknown, ValidationResult, validate_dict, validate_float,
-                        validate_from_string, validate_int, validate_interface, validate_literal,
+from validation import (Unknown, ValidationResult, Validator, validate_dict, validate_float,
+                        validate_from_string, validate_int, validate_interface, validate_literal, validate_optional,
                         validate_string, Valid, Invalid, validate_string_map)
 import json
+
+T = TypeVar('T')
 
 
 @dataclass(frozen=True)
 class SomeType:
     some_field: str
     some_other_field: int
-    type: Literal["SomeType"] = 'SomeType'
+    maybe_some_field: Optional[str]
+    type: Literal['SomeType'] = 'SomeType'
 
     @staticmethod
     def validate(value: Unknown) -> ValidationResult['SomeType']:
@@ -21,7 +24,8 @@ class SomeType:
         result = validate_interface(value,
                                     {'type': validate_literal('SomeType'),
                                      'some_field': validate_string,
-                                     'some_other_field': validate_int}
+                                     'some_other_field': validate_int,
+                                     'maybe_some_field': validate_optional(validate_string)}
                                     )
 
         if isinstance(result, Invalid):
@@ -41,6 +45,24 @@ class SomeType:
         Encodes this SomeType into a string
         """
         return json.dumps({**self.__dict__, 'type': 'SomeType'})
+
+
+@dataclass(frozen=True)
+class Holder(Generic[T]):
+    value: T
+
+    @staticmethod
+    def validate(validate_t: Validator[T]) -> Validator['Holder[T]']:
+        def validate_HolderT(value: Unknown) -> ValidationResult['Holder[T]']:
+            return validate_interface(value, {'value': validate_t})
+        return validate_HolderT
+
+    @staticmethod
+    def decode(string: Union[str, bytes]) -> ValidationResult['Holder[T]']:
+        return validate_from_string(string, Holder.validate)
+
+    def encode(self) -> str:
+        return json.dumps(self.__dict__)
 
 
 class TestValidator(unittest.TestCase):
@@ -110,11 +132,28 @@ class TestValidator(unittest.TestCase):
     def test_example_class_functionality(self):
         valid_object = {'type': 'SomeType',
                         'some_field': '1', 'some_other_field': 1}
-        valid_constructed = SomeType(some_field='1', some_other_field=1)
+        valid_constructed = SomeType(
+            some_field='1', some_other_field=1, maybe_some_field=None)
+
         self.assertEqual(SomeType.validate(valid_object),
-                         Valid(SomeType(some_field='1', some_other_field=1)))
+                         Valid(SomeType(some_field='1', some_other_field=1, maybe_some_field=None)))
 
         self.assertEqual(valid_constructed.encode(),
-                         '{"some_field": "1", "some_other_field": 1, "type": "SomeType"}')
+                         '{"some_field": "1", "some_other_field": 1, "maybe_some_field": null, "type": "SomeType"}')
         self.assertEqual(SomeType.decode(valid_constructed.encode()),
-                         Valid(SomeType(some_field='1', some_other_field=1)))
+                         Valid(SomeType(some_field='1', some_other_field=1, maybe_some_field=None)))
+
+        valid_object_with_optional_value = {'type': 'SomeType',
+                                            'some_field': '1',
+                                            'some_other_field': 1,
+                                            'maybe_some_field': 'hello'}
+        valid_constructed_with_optional_value = SomeType(
+            some_field='1', some_other_field=1, maybe_some_field="hello")
+
+        self.assertEqual(SomeType.validate(valid_object_with_optional_value),
+                         Valid(SomeType(some_field='1', some_other_field=1, maybe_some_field="hello")))
+
+        self.assertEqual(valid_constructed_with_optional_value.encode(),
+                         '{"some_field": "1", "some_other_field": 1, "maybe_some_field": "hello", "type": "SomeType"}')
+        self.assertEqual(SomeType.decode(valid_constructed_with_optional_value.encode()),
+                         Valid(SomeType(some_field='1', some_other_field=1, maybe_some_field="hello")))
