@@ -278,8 +278,7 @@ def validate_with_type_tag(value: Unknown,
 
 def validate_with_type_tags(value: Unknown,
                             tag_field: str,
-                            tagged_validators: TaggedValidators[T],
-                            is_embedded=False
+                            tagged_validators: TaggedValidators[T]
                             ) -> ValidationResult[T]:
     """
     Validates that a value has a tag field matching one of several tagged validators. If the tag
