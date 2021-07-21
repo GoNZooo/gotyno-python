@@ -90,6 +90,16 @@ def validate_float(value: Unknown) -> ValidationResult[float]:
     return Invalid(f'Value is not float: {value} ({type(value)})')
 
 
+def validate_bool(value: Unknown) -> ValidationResult[bool]:
+    """
+    Validates a value as a boolean.
+    """
+    if isinstance(value, bool):
+        return Valid(value)
+
+    return Invalid(f'Value is not bool: {value} ({type(value)})')
+
+
 def validate_literal(literal: T) -> Validator[T]:
     """
     Takes a literal value and creates a validator for it.
@@ -190,6 +200,30 @@ def validate_string_map_of(validate_t: Validator[T]) -> Validator[StringMap[T]]:
     return validate_dict_of(validate_string, validate_t)
 
 
+def validate_list(validate_T: Validator[T]) -> Validator[List[T]]:
+    """
+    Takes a validator and creates a validator for a list of that type.
+    """
+    def validate_list_T(value: Unknown) -> Validator[List[T]]:
+        if not isinstance(value, list):
+            return Invalid(f'Expected list, got: {value} ({type(value)})')
+        errors = dict()
+        new_value = list()
+        for i, item in enumerate(value):
+            item_validation_result = validate_T(item)
+            if isinstance(item_validation_result, Invalid):
+                errors[str(i)] = item_validation_result.reason
+            else:
+                new_value.append(item_validation_result.value)
+
+        if len(errors) > 0:
+            return Invalid(errors)
+
+        return Valid(new_value)
+
+    return validate_list_T
+
+
 def validate_one_of_literals(value: Unknown, literals: List[T]) -> ValidationResult[T]:
     """
     Validates a value as one of the given literals.
@@ -223,7 +257,10 @@ def validate_unknown(value: Unknown) -> ValidationResult[Unknown]:
     return Valid(value)
 
 
-def validate_interface(value: Unknown, interface: InterfaceSpecification) -> ValidationResult[T]:
+def validate_interface(value: Unknown,
+                       interface: InterfaceSpecification,
+                       constructor: Callable[[Dict[str, Unknown]], T] = None
+                       ) -> ValidationResult[T]:
     """
     Validates a value as matching a given interface specification.
     """
@@ -237,7 +274,11 @@ def validate_interface(value: Unknown, interface: InterfaceSpecification) -> Val
     # iterate through the interface, validating each key exists and the value matches the validator
     for key, validator in interface.items():
         if key not in value_as_string_map:
-            new_value[key] = None
+            validation_result = validator(None)
+            if isinstance(validation_result, Invalid):
+                errors[key] = validation_result.reason
+            else:
+                new_value[key] = validation_result.value
         else:
             validation_result = validator(value_as_string_map[key])
             if isinstance(validation_result, Invalid):
@@ -247,6 +288,9 @@ def validate_interface(value: Unknown, interface: InterfaceSpecification) -> Val
 
     if len(errors) > 0:
         return Invalid(errors)
+
+    if constructor is not None:
+        return Valid(constructor(**new_value))
 
     return Valid(new_value)
 
