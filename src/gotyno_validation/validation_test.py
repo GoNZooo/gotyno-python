@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 from typing import Generic, Literal, Optional, TypeVar, Union
 import unittest
-from gotyno_validation.validation import (Unknown, ValidationResult, Validator, validate_dict, validate_float,
+from gotyno_validation.validation import (Unknown, ValidationResult, Validator, validate_dict, validate_enumeration_member, validate_float,
                                           validate_from_string, validate_int, validate_interface, validate_list, validate_literal,
                                           validate_optional, validate_string, Valid, Invalid, validate_string_map)
 import json
@@ -9,6 +9,7 @@ import gotyno_validation.validation as v
 import gotyno_validation.validation as validation
 import gotyno_validation.encoding as encoding
 import typing
+import enum
 
 T = TypeVar('T')
 
@@ -538,6 +539,26 @@ class Definitely(Possibly[T]):
         return json.dumps({**self.__dict__, 'type': 'Definitely'})
 
 
+class Color(enum.Enum):
+    red = 'ff0000'
+    green = '00ff00'
+    blue = '0000ff'
+
+    @staticmethod
+    def validate(value: validation.Unknown) -> validation.ValidationResult['Color']:
+        return validation.validate_enumeration_member(value, Color)
+
+    @staticmethod
+    def decode(string: typing.Union[str, bytes]) -> validation.ValidationResult['Color']:
+        return validation.validate_from_string(string, Color.validate)
+
+    def to_json(self) -> typing.Any:
+        return self.value
+
+    def encode(self) -> str:
+        return str(self.value)
+
+
 class TestValidator(unittest.TestCase):
     "A test suite for our validation functions"
 
@@ -689,3 +710,22 @@ class TestValidator(unittest.TestCase):
             not_really_encoded, validate_T=validate_int)
         self.assertIsInstance(not_really_decoded_as_possibly, v.Valid)
         self.assertEqual(not_really_decoded_as_possibly.value, NotReally())
+
+    def test_enumeration_validation_works(self):
+        red = Color.red
+        green = Color.green
+        blue = Color.blue
+
+        not_enum_member = 'f0f0f0'
+
+        red_result = validate_enumeration_member(red, Color)
+        self.assertIsInstance(red_result, v.Valid)
+
+        green_result = validate_enumeration_member(green, Color)
+        self.assertIsInstance(green_result, v.Valid)
+
+        blue_result = validate_enumeration_member(blue, Color)
+        self.assertIsInstance(blue_result, v.Valid)
+
+        not_enum_result = validate_enumeration_member(not_enum_member, Color)
+        self.assertIsInstance(not_enum_result, Invalid)

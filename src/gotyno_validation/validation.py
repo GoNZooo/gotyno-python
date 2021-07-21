@@ -1,6 +1,7 @@
 from typing import Callable, Dict, List, Optional, Union, TypeVar, Generic
 from dataclasses import dataclass
 import json
+from enum import Enum
 
 
 T = TypeVar('T')
@@ -349,3 +350,16 @@ def validate_with_type_tags(value: Unknown,
     validator = tagged_validators[tag]
 
     return validator(string_map)
+
+
+def validate_enumeration_member(value: Unknown, enumeration: Enum) -> ValidationResult[Enum]:
+    """
+    Validates that a value is a member of an enumeration.
+    """
+    for member in enumeration:
+        if value == member:
+            return Valid(value)
+
+    enumeration_values = [str(v) for v in enumeration]
+
+    return Invalid(f'Expected one of {", ".join(enumeration_values)}, got: {value} ({type(value)})')
