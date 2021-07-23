@@ -1,8 +1,11 @@
-from typing import Any, Callable, TypeVar, Union, Optional, List
+from typing import Any, Callable, Dict, Type, TypeVar, Union, Optional, List
+
+from gotyno_validation.validation import Unknown
 
 T = TypeVar('T')
 Encoder = Callable[[T], str]
 ToJSON = Callable[[T], Any]
+ToJSONInterface = Dict[Type[T], Any]
 
 
 def encode_basic(value: Union[str, int, float, bool]) -> str:
@@ -81,3 +84,14 @@ def list_to_json(T_to_json: ToJSON[T]) -> ToJSON[List[T]]:
         return [T_to_json(v) for v in value]
 
     return list_T_to_json
+
+
+def one_of_to_json(value: Unknown, encoding_interface: ToJSONInterface) -> Any:
+    """
+    Takes an unknown value and matches the class in an encoding interface. For a match, takes the
+    corresponding `to_json` function and runs it on the value.
+    """
+    for class_constructor, to_json in encoding_interface.items():
+        if isinstance(value, class_constructor):
+            return to_json(value)
+    raise ValueError(f'Unsupported type: {type(value)}')
