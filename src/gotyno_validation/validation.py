@@ -296,6 +296,48 @@ def validate_interface(value: Unknown,
     return Valid(new_value)
 
 
+def validate_has_type_tag(value: Unknown,
+                          tag_field: str,
+                          type_tag: str) -> ValidationResult[StringMap[Unknown]]:
+    """
+    Validates a value as being a string map with a specific type tag.
+    """
+    as_string_map = validate_string_map(value, validate_unknown)
+    if isinstance(as_string_map, Invalid):
+        return as_string_map
+
+    string_map = as_string_map.value
+    if tag_field not in string_map:
+        return Invalid(f'Missing tag field "{tag_field}"')
+    tag = string_map[tag_field]
+    if tag != type_tag:
+        return Invalid(f'Expected tag "{type_tag}", got "{tag}"')
+    return Valid(string_map)
+
+
+def validate_with_type_tag_and_validator(value: Unknown,
+                                         tag_field: str,
+                                         type_tag: str,
+                                         validator: Validator[U],
+                                         constructor: Callable[[
+                                             Dict[str, Unknown]], T]
+                                         ) -> ValidationResult[T]:
+    """
+    Validates a value as being a string map with a specific type tag and validates the value with
+    a given validator.
+    """
+    has_type_tag_result = validate_has_type_tag(value, tag_field, type_tag)
+    if isinstance(has_type_tag_result, Invalid):
+        return has_type_tag_result
+    string_map = has_type_tag_result.value
+
+    result = validator(string_map)
+    if isinstance(result, Invalid):
+        return result
+
+    return Valid(constructor(**result.value))
+
+
 def validate_with_type_tag(value: Unknown,
                            tag_field: str,
                            type_tag: str,
@@ -306,19 +348,16 @@ def validate_with_type_tag(value: Unknown,
     Validates a value as matching a given interface specification and having a type tag. The type
     tag is removed from the result after validation.
     """
-    # Add the tag field to the interface specification.
-    interface_with_type_tag = {**interface,
-                               tag_field: validate_literal(type_tag)}
-    result = validate_interface(value, interface_with_type_tag)
+    # Check first for a valid type tag
+    validation_result = validate_has_type_tag(value, tag_field, type_tag)
+    if isinstance(validation_result, Invalid):
+        return validation_result
+
+    result = validate_interface(value, interface)
     if isinstance(result, Invalid):
         return result
 
-    # Remove the type tag from the result and return the value after applying the constructor to
-    # the result.
-    result_without_type_tag = {k: v for k,
-                               v in result.value.items() if k != tag_field}
-
-    return Valid(constructor(**result_without_type_tag))
+    return Valid(constructor(**result))
 
 
 def validate_with_type_tags(value: Unknown,
