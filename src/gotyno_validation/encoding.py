@@ -63,6 +63,14 @@ def basic_to_json(value: Union[str, int, float, bool]) -> Any:
         raise ValueError(f'Unsupported type: {type(value)}')
 
 
+def bigint_to_json(value: int) -> Any:
+    """
+    Converts a bigint value into a JSON compatible value. This means we encode
+    it as a string.
+    """
+    return str(value)
+
+
 def optional_to_json(T_to_json: ToJSON[T]) -> ToJSON[Optional[T]]:
     """
     Takes an encoder for a type `T` and creates an encoder for an `Optional[T]`.

@@ -81,6 +81,22 @@ def validate_int(value: Unknown) -> ValidationResult[int]:
     return Invalid(f'Value is not int: {value} ({type(value)})')
 
 
+def validate_bigint(value: Unknown) -> ValidationResult[int]:
+    """
+    Validates a value as a big integer. This means it may come in the form of an integer or a string.
+    """
+    if isinstance(value, int) and not isinstance(value, bool):
+        return Valid(value)
+    if isinstance(value, str):
+        # If we can parse it as an integer it's valid
+        try:
+            value = int(value)
+            return Valid(value)
+        except ValueError:
+            return Invalid(f'String value for bigint is not parsable as integer: {value}')
+    return Invalid(f'Value is not valid big integer or parsable as one: {value} ({type(value)})')
+
+
 def validate_float(value: Unknown) -> ValidationResult[float]:
     """
     Validates a value as a float.
