@@ -373,7 +373,7 @@ def validate_with_type_tag(value: Unknown,
     if isinstance(result, Invalid):
         return result
 
-    return Valid(constructor(**result))
+    return Valid(constructor(**result.value))
 
 
 def validate_with_type_tags(value: Unknown,

@@ -2,7 +2,7 @@ from dataclasses import dataclass
 from typing import Generic, Literal, Optional, TypeVar, Union
 import unittest
 from gotyno_validation.gotyno_output import Color, Definitely, NotReally, Possibly, SomeType
-from gotyno_validation.notifications import CommandSuccess, NotificationAdded, NotificationCommandResult, NotifyUserPayload
+from gotyno_validation.notifications import AllNotificationsCleared, CommandSuccess, NotificationAdded, NotificationCommandResult, NotifyUserPayload
 from gotyno_validation.validation import (Unknown, ValidationResult, Validator, validate_dict, validate_enumeration_member, validate_float,
                                           validate_from_string, validate_int, validate_interface, validate_list, validate_literal,
                                           validate_optional, validate_string, Valid, Invalid, validate_string_map)
@@ -202,3 +202,8 @@ class TestValidator(unittest.TestCase):
 
         not_enum_result = validate_enumeration_member(not_enum_member, Color)
         self.assertIsInstance(not_enum_result, Invalid)
+
+    def empty_union_case_works(self):
+        all_notifications_cleared = AllNotificationsCleared()
+        all_notifications_cleared_encoded = all_notifications_cleared.encode()
+        all_notifications_cleared_decoded = AllNotificationsCleared.decode(all_notifications_cleared.encode())
