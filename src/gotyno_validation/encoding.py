@@ -1,3 +1,4 @@
+from enum import Enum
 from typing import Any, Callable, Dict, Type, TypeVar, Union, Optional, List
 
 from gotyno_validation.validation import Unknown
@@ -103,3 +104,28 @@ def one_of_to_json(value: Unknown, encoding_interface: ToJSONInterface) -> Any:
         if isinstance(value, class_constructor):
             return to_json(value)
     raise ValueError(f'Unsupported type: {type(value)}')
+
+def general_to_json(value: Unknown) -> Any:
+    """
+    Takes an unknown value and converts it to a JSON value. This checks for the function `to_json`
+    in the value it is asked to convert. If it exists, it's called with no parameters.
+    """
+
+    if isinstance(value, str):
+        return value
+    elif isinstance(value, int):
+        return value
+    elif isinstance(value, float):
+        return value
+    elif isinstance(value, bool):
+        return value
+    elif isinstance(value, Enum):
+        return value.value
+    elif hasattr(value, "to_json"):
+        return value.to_json()
+    elif isinstance(value, list):
+        return [general_to_json(v) for v in value]
+    elif isinstance(value, dict):
+        return {k: general_to_json(v) for k, v in value.items()}
+    else:
+        raise ValueError(f"Unsupported type for 'general_to_json': {type(value)}")
