@@ -101,7 +101,7 @@ def validate_float(value: Unknown) -> ValidationResult[float]:
     """
     Validates a value as a float.
     """
-    if isinstance(value, float):
+    if isinstance(value, float) or isinstance(value, int):
         return Valid(value)
 
     return Invalid(f'Value is not float: {value} ({type(value)})')
