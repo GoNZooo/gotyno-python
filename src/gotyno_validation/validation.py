@@ -266,6 +266,18 @@ def validate_one_of(value: Unknown, validators: List[Validator[T]]) -> Validatio
 
     return Invalid(f'Expected to match one of {validator_names}, got: {value} ({type(value)})')
 
+def validate_one_of_with_constructor(value: Unknown, validators: List[Validator[T]], constructor: Callable[[T], U]) -> ValidationResult[U]:
+    """
+    Validates a value as matching one of the given validators.
+    """
+    for validator in validators:
+        validation_result = validator(value)
+        if isinstance(validation_result, Valid):
+            return Valid(constructor(validation_result.value))
+
+    validator_names = [v.__name__ for v in validators]
+
+    return Invalid(f'Expected to match one of {validator_names}, got: {value} ({type(value)})')
 
 def validate_unknown(value: Unknown) -> ValidationResult[Unknown]:
     """
