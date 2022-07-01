@@ -425,7 +425,7 @@ def validate_enumeration_member(value: Unknown, enumeration: Enum) -> Validation
     """
     for member in enumeration:
         if value == member.value:
-            return Valid(value)
+            return Valid(member)
 
     enumeration_values = [str(v) for v in enumeration]
 
