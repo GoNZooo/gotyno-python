@@ -412,7 +412,7 @@ def validate_enumeration_member(value: Unknown, enumeration: Enum) -> Validation
     Validates that a value is a member of an enumeration.
     """
     for member in enumeration:
-        if value == member:
+        if value == member.value:
             return Valid(value)
 
     enumeration_values = [str(v) for v in enumeration]
