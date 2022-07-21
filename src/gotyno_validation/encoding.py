@@ -121,11 +121,11 @@ def general_to_json(value: Unknown) -> Any:
         return value
     elif isinstance(value, Enum):
         return value.value
-    elif hasattr(value, "to_json"):
-        return value.to_json()
     elif isinstance(value, list):
         return [general_to_json(v) for v in value]
     elif isinstance(value, dict):
         return {k: general_to_json(v) for k, v in value.items()}
+    elif hasattr(value, "to_json"):
+        return value.to_json()
     else:
         raise ValueError(f"Unsupported type for 'general_to_json': {type(value)}")
